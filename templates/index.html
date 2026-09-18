@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Medical RAG Assistant</title>
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f8f9;
+            color: #24323a;
+            min-height: 100vh;
+        }
+
+        /* ================================
+           HEADER
+        ================================= */
+
+        header {
+            background: #087f8c;
+            color: white;
+            padding: 18px 8%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            font-size: 30px;
+        }
+
+        .logo h1 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            background: #62e6a8;
+            border-radius: 50%;
+        }
+
+
+        /* ================================
+           MAIN CONTAINER
+        ================================= */
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            margin: 45px auto;
+        }
+
+
+        /* ================================
+           HERO
+        ================================= */
+
+        .hero {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .hero h2 {
+            font-size: 36px;
+            color: #12343b;
+            margin-bottom: 12px;
+        }
+
+        .hero p {
+            font-size: 16px;
+            color: #63747c;
+            max-width: 650px;
+            margin: auto;
+            line-height: 1.6;
+        }
+
+
+        /* ================================
+           QUESTION CARD
+        ================================= */
+
+        .question-card {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.07);
+            margin-bottom: 28px;
+        }
+
+        .question-card label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #29434a;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            resize: vertical;
+            border: 1px solid #d5e2e5;
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        textarea:focus {
+            border-color: #087f8c;
+            box-shadow: 0 0 0 3px rgba(8, 127, 140, 0.10);
+        }
+
+        .button-row {
+            margin-top: 15px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        button {
+            background: #087f8c;
+            color: white;
+            border: none;
+            padding: 13px 25px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #066b76;
+            transform: translateY(-1px);
+        }
+
+
+        /* ================================
+           LOADING
+        ================================= */
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 18px;
+            color: #087f8c;
+            font-size: 14px;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #d8eef0;
+            border-top: 3px solid #087f8c;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+
+        /* ================================
+           ANSWER CARD
+        ================================= */
+
+        .answer-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.07);
+            border-left: 5px solid #087f8c;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #12343b;
+            margin-bottom: 18px;
+        }
+
+        .question-display {
+            background: #f0f8f9;
+            padding: 13px 16px;
+            border-radius: 9px;
+            margin-bottom: 20px;
+            color: #36545c;
+            font-size: 14px;
+        }
+
+        .answer {
+            white-space: pre-line;
+            line-height: 1.75;
+            font-size: 15px;
+            color: #35484f;
+        }
+
+
+        /* ================================
+           SOURCES
+        ================================= */
+
+        .sources-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 28px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.07);
+        }
+
+        .source-item {
+            background: #f5f9fa;
+            border: 1px solid #e1ecee;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 9px;
+            font-size: 14px;
+            color: #49616a;
+        }
+
+        .source-item:last-child {
+            margin-bottom: 0;
+        }
+
+
+        /* ================================
+           EXAMPLES
+        ================================= */
+
+        .examples {
+            margin-top: 35px;
+        }
+
+        .examples h3 {
+            text-align: center;
+            color: #12343b;
+            margin-bottom: 18px;
+        }
+
+        .example-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .example {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #e0eaec;
+            color: #49616a;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .example:hover {
+            border-color: #087f8c;
+            color: #087f8c;
+            transform: translateY(-2px);
+        }
+
+
+        /* ================================
+           DISCLAIMER
+        ================================= */
+
+        .disclaimer {
+            background: #fff8e8;
+            border: 1px solid #f0dfb3;
+            color: #6b5b34;
+            padding: 17px;
+            border-radius: 10px;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-top: 30px;
+        }
+
+
+        /* ================================
+           FOOTER
+        ================================= */
+
+        footer {
+            text-align: center;
+            padding: 25px;
+            color: #829197;
+            font-size: 13px;
+        }
+
+
+        /* ================================
+           MOBILE
+        ================================= */
+
+        @media (max-width: 700px) {
+
+            header {
+                padding: 15px 5%;
+            }
+
+            .status {
+                display: none;
+            }
+
+            .container {
+                width: 92%;
+                margin: 30px auto;
+            }
+
+            .hero h2 {
+                font-size: 28px;
+            }
+
+            .hero p {
+                font-size: 14px;
+            }
+
+            .question-card,
+            .answer-card,
+            .sources-card {
+                padding: 20px;
+            }
+
+            .example-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .button-row {
+                justify-content: stretch;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <!-- ================================
+         HEADER
+    ================================= -->
+
+    <header>
+
+        <div class="logo">
+
+            <div class="logo-icon">
+                🏥
+            </div>
+
+            <h1>
+                Medical RAG Assistant
+            </h1>
+
+        </div>
+
+        <div class="status">
+
+            <span class="status-dot"></span>
+
+            Knowledge Base Active
+
+        </div>
+
+    </header>
+
+
+    <!-- ================================
+         MAIN
+    ================================= -->
+
+    <main class="container">
+
+
+        <!-- HERO -->
+
+        <section class="hero">
+
+            <h2>
+                Ask Your Medical Question
+            </h2>
+
+            <p>
+                Get information from a curated medical
+                knowledge base using Retrieval-Augmented
+                Generation (RAG).
+            </p>
+
+        </section>
+
+
+
+        <!-- QUESTION FORM -->
+
+        <section class="question-card">
+
+            <form
+                method="POST"
+                onsubmit="showLoading()"
+            >
+
+                <label for="question">
+                    What would you like to know?
+                </label>
+
+                <textarea
+                    id="question"
+                    name="question"
+                    placeholder="Example: What are the symptoms of dengue?"
+                    required
+                >{{ question }}</textarea>
+
+
+                <div class="button-row">
+
+                    <button type="submit">
+                        Ask Medical Assistant →
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="loading"
+                    class="loading"
+                >
+
+                    <span class="spinner"></span>
+
+                    Searching medical knowledge base
+                    and generating answer...
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+
+        <!-- ================================
+             ANSWER
+        ================================= -->
+
+        {% if answer %}
+
+        <section class="answer-card">
+
+            <div class="section-title">
+                🤖 Medical Assistant
+            </div>
+
+
+            {% if question %}
+
+            <div class="question-display">
+
+                <strong>Your question:</strong>
+
+                {{ question }}
+
+            </div>
+
+            {% endif %}
+
+
+            <div class="answer">
+
+                {{ answer }}
+
+            </div>
+
+        </section>
+
+        {% endif %}
+
+
+
+        <!-- ================================
+             SOURCES
+        ================================= -->
+
+        {% if sources %}
+
+        <section class="sources-card">
+
+            <div class="section-title">
+                📚 Sources Used
+            </div>
+
+
+            {% for source in sources %}
+
+            <div class="source-item">
+
+                📄 {{ source }}
+
+            </div>
+
+            {% endfor %}
+
+        </section>
+
+        {% endif %}
+
+
+
+        <!-- ================================
+             EXAMPLE QUESTIONS
+        ================================= -->
+
+        <section class="examples">
+
+            <h3>
+                Try an example
+            </h3>
+
+
+            <div class="example-grid">
+
+
+                <div
+                    class="example"
+                    onclick="setQuestion('What are the symptoms of dengue?')"
+                >
+
+                    🦟 What are the symptoms of dengue?
+
+                </div>
+
+
+                <div
+                    class="example"
+                    onclick="setQuestion('What are the symptoms of malaria?')"
+                >
+
+                    🦠 What are the symptoms of malaria?
+
+                </div>
+
+
+                <div
+                    class="example"
+                    onclick="setQuestion('What are the symptoms of diabetes?')"
+                >
+
+                    🩺 What are the symptoms of diabetes?
+
+                </div>
+
+
+                <div
+                    class="example"
+                    onclick="setQuestion('How can asthma be managed?')"
+                >
+
+                    🫁 How can asthma be managed?
+
+                </div>
+
+
+                <div
+                    class="example"
+                    onclick="setQuestion('What are the symptoms of influenza?')"
+                >
+
+                    🤒 What are the symptoms of influenza?
+
+                </div>
+
+
+                <div
+                    class="example"
+                    onclick="setQuestion('How can high blood pressure be managed?')"
+                >
+
+                    ❤️ How can high blood pressure be managed?
+
+                </div>
+
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================================
+             DISCLAIMER
+        ================================= -->
+
+        <div class="disclaimer">
+
+            <strong>⚠️ Medical Disclaimer:</strong>
+
+            This assistant provides general medical
+            information from its knowledge base for
+            educational purposes only. It does not
+            diagnose medical conditions, prescribe
+            medicines, or replace advice from a qualified
+            healthcare professional.
+
+        </div>
+
+
+    </main>
+
+
+
+    <!-- ================================
+         FOOTER
+    ================================= -->
+
+    <footer>
+
+        Medical RAG Assistant •
+        Retrieval-Augmented Generation
+
+    </footer>
+
+
+
+    <!-- ================================
+         JAVASCRIPT
+    ================================= -->
+
+    <script>
+
+        function setQuestion(text) {
+
+            document.getElementById("question").value = text;
+
+            document.getElementById("question").focus();
+
+        }
+
+
+        function showLoading() {
+
+            document.getElementById(
+                "loading"
+            ).style.display = "block";
+
+        }
+
+    </script>
+
+
+</body>
+
+</html>
