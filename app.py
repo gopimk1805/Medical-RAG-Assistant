@@ -8,25 +8,16 @@ from sentence_transformers import SentenceTransformer
 import chromadb
 
 
-# --------------------------------------------------
-# Flask setup
-# --------------------------------------------------
-
 app = Flask(__name__)
-
-
-# --------------------------------------------------
-# Load environment variables
-# --------------------------------------------------
 
 load_dotenv()
 
+
+# --------------------------------------------------
+# Gemini Configuration
+# --------------------------------------------------
+
 api_key = os.getenv("GEMINI_API_KEY")
-
-
-# --------------------------------------------------
-# Gemini client
-# --------------------------------------------------
 
 if api_key:
     gemini_client = genai.Client(
@@ -41,18 +32,34 @@ else:
 
 
 # --------------------------------------------------
-# Load embedding model
+# Embedding Model
 # --------------------------------------------------
 
-print("Loading embedding model...")
+# Load the model only when a question is asked.
+# This helps Render start the web server faster.
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = None
 
-print("Embedding model loaded.")
+
+def get_embedding_model():
+
+    global model
+
+    if model is None:
+
+        print("Loading embedding model...")
+
+        model = SentenceTransformer(
+            "all-MiniLM-L6-v2"
+        )
+
+        print("Embedding model loaded.")
+
+    return model
 
 
 # --------------------------------------------------
-# Connect to ChromaDB
+# ChromaDB
 # --------------------------------------------------
 
 print("Connecting to ChromaDB...")
@@ -74,7 +81,7 @@ print(
 
 
 # --------------------------------------------------
-# Home route
+# Home Route
 # --------------------------------------------------
 
 @app.route("/", methods=["GET", "POST"])
@@ -83,10 +90,6 @@ def home():
     answer = None
     sources = []
     question = ""
-
-    # --------------------------------------------------
-    # When user submits a question
-    # --------------------------------------------------
 
     if request.method == "POST":
 
@@ -99,54 +102,89 @@ def home():
 
         print("Question:", question)
 
+
         # --------------------------------------------------
-        # Empty question check
+        # Empty Question
         # --------------------------------------------------
 
         if not question:
 
-            answer = "Please enter a medical question."
+            answer = (
+                "Please enter a medical question."
+            )
+
 
         else:
 
             # --------------------------------------------------
-            # Convert question into embedding
+            # Load Embedding Model
             # --------------------------------------------------
 
-            print("Creating question embedding...")
+            embedding_model = (
+                get_embedding_model()
+            )
 
-            query_embedding = model.encode(
-                question
-            ).tolist()
 
             # --------------------------------------------------
-            # Retrieve relevant documents
+            # Create Question Embedding
             # --------------------------------------------------
 
-            print("Searching ChromaDB...")
+            print(
+                "Creating question embedding..."
+            )
+
+            query_embedding = (
+                embedding_model
+                .encode(question)
+                .tolist()
+            )
+
+
+            # --------------------------------------------------
+            # Search ChromaDB
+            # --------------------------------------------------
+
+            print(
+                "Searching ChromaDB..."
+            )
 
             results = collection.query(
-                query_embeddings=[query_embedding],
+                query_embeddings=[
+                    query_embedding
+                ],
                 n_results=3
             )
 
-            documents = results["documents"][0]
-            metadatas = results["metadatas"][0]
-            distances = results["distances"][0]
+
+            documents = results[
+                "documents"
+            ][0]
+
+            metadatas = results[
+                "metadatas"
+            ][0]
+
+            distances = results[
+                "distances"
+            ][0]
+
 
             print(
                 "Retrieved chunks:",
                 len(documents)
             )
 
+
             if distances:
+
                 print(
                     "Best similarity distance:",
                     distances[0]
                 )
 
+
             # --------------------------------------------------
-            # Check whether relevant information exists
+            # Out-of-Knowledge-Base Handling
             # --------------------------------------------------
 
             if (
@@ -156,31 +194,37 @@ def home():
             ):
 
                 answer = (
-                    "I don't have enough information in the "
-                    "provided medical documents to answer "
-                    "this question."
+                    "I don't have enough information "
+                    "in the provided medical documents "
+                    "to answer this question."
                 )
+
 
             else:
 
                 # --------------------------------------------------
-                # Build context for Gemini
+                # Build Context
                 # --------------------------------------------------
 
                 context_parts = []
 
-                for i, document in enumerate(documents):
+                for i, document in enumerate(
+                    documents
+                ):
 
                     context_parts.append(
-                        f"Source {i + 1}:\n{document}"
+                        f"Source {i + 1}:\n"
+                        f"{document}"
                     )
+
 
                 context = "\n\n".join(
                     context_parts
                 )
 
+
                 # --------------------------------------------------
-                # Collect source names
+                # Collect Sources
                 # --------------------------------------------------
 
                 for metadata in metadatas:
@@ -195,6 +239,7 @@ def home():
                         None
                     )
 
+
                     if page is not None:
 
                         page = int(page) + 1
@@ -207,14 +252,16 @@ def home():
 
                         source_text = source
 
+
                     if source_text not in sources:
 
                         sources.append(
                             source_text
                         )
 
+
                 # --------------------------------------------------
-                # Check Gemini API key
+                # Gemini
                 # --------------------------------------------------
 
                 if gemini_client is None:
@@ -224,11 +271,8 @@ def home():
                         "Please check your .env file."
                     )
 
-                else:
 
-                    # --------------------------------------------------
-                    # Grounded medical prompt
-                    # --------------------------------------------------
+                else:
 
                     prompt = f"""
 You are a medical information assistant.
@@ -245,18 +289,12 @@ USER QUESTION:
 IMPORTANT RULES:
 
 1. Use only information contained in the CONTEXT.
-
 2. Do not use outside medical knowledge.
-
 3. Do not invent facts, symptoms, treatments, medicines,
 dosages, or schedules.
-
 4. Do not diagnose the user.
-
 5. Do not prescribe medicines.
-
 6. Do not create a personalized treatment plan.
-
 7. If the CONTEXT does not contain enough information
 to answer the question, say:
 
@@ -264,13 +302,10 @@ to answer the question, say:
 documents to answer this question."
 
 8. Give the answer in simple and clear language.
-
 9. When relevant, organize the answer using short
 headings and bullet points.
-
 10. If the CONTEXT contains warning signs or information
 about when medical attention is needed, include it.
-
 11. Clearly mention that this is general medical
 information and does not replace advice from a qualified
 healthcare professional.
@@ -278,9 +313,6 @@ healthcare professional.
 Now answer the user's question.
 """
 
-                    # --------------------------------------------------
-                    # Call Gemini
-                    # --------------------------------------------------
 
                     try:
 
@@ -288,31 +320,29 @@ Now answer the user's question.
                             "Calling Gemini..."
                         )
 
+
                         interaction = (
                             gemini_client
                             .interactions
                             .create(
                                 model="gemini-3.8-flash",
-
                                 input=prompt,
-
                                 generation_config={
                                     "thinking_level": "low"
                                 }
                             )
                         )
 
+
                         print(
                             "Gemini response received."
                         )
+
 
                         answer = (
                             interaction.output_text
                         )
 
-                    # --------------------------------------------------
-                    # Handle Gemini errors
-                    # --------------------------------------------------
 
                     except Exception as error:
 
@@ -323,7 +353,11 @@ Now answer the user's question.
                             error_text
                         )
 
-                        # Quota / rate limit
+
+                        # --------------------------------------------------
+                        # Quota Error
+                        # --------------------------------------------------
+
                         if (
                             "429" in error_text
                             or
@@ -332,15 +366,21 @@ Now answer the user's question.
                         ):
 
                             answer = (
-                                "Gemini API quota is currently "
-                                "exhausted. The medical information "
-                                "was retrieved successfully, but "
-                                "the AI-generated answer cannot be "
-                                "generated until the API quota "
-                                "becomes available again."
+                                "Gemini API quota is "
+                                "currently exhausted. "
+                                "The medical information "
+                                "was retrieved successfully, "
+                                "but the AI-generated answer "
+                                "cannot be generated until "
+                                "the API quota becomes "
+                                "available again."
                             )
 
-                        # Timeout
+
+                        # --------------------------------------------------
+                        # Timeout Error
+                        # --------------------------------------------------
+
                         elif (
                             "timeout"
                             in error_text.lower()
@@ -352,25 +392,30 @@ Now answer the user's question.
                             answer = (
                                 "The Gemini request timed out. "
                                 "The medical information was "
-                                "retrieved successfully, but the "
-                                "AI answer could not be generated "
-                                "right now. Please try again."
+                                "retrieved successfully, but "
+                                "the AI answer could not be "
+                                "generated right now. "
+                                "Please try again."
                             )
 
-                        # Other errors
+
+                        # --------------------------------------------------
+                        # Other Gemini Errors
+                        # --------------------------------------------------
+
                         else:
 
                             answer = (
                                 "The medical information was "
                                 "retrieved successfully, but "
-                                "Gemini could not generate the "
-                                "answer right now. Please try "
-                                "again later."
+                                "Gemini could not generate "
+                                "the answer right now. "
+                                "Please try again later."
                             )
 
 
     # --------------------------------------------------
-    # Render webpage
+    # Render HTML
     # --------------------------------------------------
 
     return render_template(
@@ -382,11 +427,17 @@ Now answer the user's question.
 
 
 # --------------------------------------------------
-# Start Flask server
+# Local Development
 # --------------------------------------------------
 
 if __name__ == "__main__":
 
     app.run(
-        debug=True
+        host="0.0.0.0",
+        port=int(
+            os.getenv(
+                "PORT",
+                5000
+            )
+        )
     )
