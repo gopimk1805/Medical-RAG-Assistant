@@ -5,3 +5,5 @@ sentence-transformers
 chromadb
 pypdf
 gunicorn
+langchain-community
+langchain-text-splitters
