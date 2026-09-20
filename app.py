@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import os
 
 from google import genai
-from sentence_transformers import SentenceTransformer
 import chromadb
 
 
@@ -48,6 +47,9 @@ def get_embedding_model():
     if model is None:
 
         print("Loading embedding model...")
+
+        # Load only when needed
+        from sentence_transformers import SentenceTransformer
 
         model = SentenceTransformer(
             "all-MiniLM-L6-v2"
@@ -291,24 +293,24 @@ IMPORTANT RULES:
 1. Use only information contained in the CONTEXT.
 2. Do not use outside medical knowledge.
 3. Do not invent facts, symptoms, treatments, medicines,
-dosages, or schedules.
+   dosages, or schedules.
 4. Do not diagnose the user.
 5. Do not prescribe medicines.
 6. Do not create a personalized treatment plan.
 7. If the CONTEXT does not contain enough information
-to answer the question, say:
+   to answer the question, say:
 
 "I don't have enough information in the provided medical
 documents to answer this question."
 
 8. Give the answer in simple and clear language.
 9. When relevant, organize the answer using short
-headings and bullet points.
+   headings and bullet points.
 10. If the CONTEXT contains warning signs or information
-about when medical attention is needed, include it.
+    about when medical attention is needed, include it.
 11. Clearly mention that this is general medical
-information and does not replace advice from a qualified
-healthcare professional.
+    information and does not replace advice from a qualified
+    healthcare professional.
 
 Now answer the user's question.
 """
